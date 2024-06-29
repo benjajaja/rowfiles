@@ -1,10 +1,11 @@
-package rowfiles
+# Rowfiles 🚣
 
-import (
-	"context"
-	"io"
-)
+Go library for reading files that contain rows, similar to io.Reader and io.Writer but `T`
+instead of `byte`.
 
+For example: CSV, JSONLines, Parquet.
+
+```go
 // Read rows until EOF.
 type RowReader[T any] interface {
 	// Read the next row. Returns io.EOF if no more rows.
@@ -38,3 +39,4 @@ type RowModel[T any] interface {
 	// Write all rows in channel
 	WriteChan(context.Context, io.Writer, <-chan T, <-chan error) error
 }
+```
