@@ -13,7 +13,7 @@ type row struct {
 	b string
 }
 
-var testModel = CSVModel[row]{
+var testModel = rowfiles.NewRowModel[row](CSVModel[row]{
 	func() []string {
 		return []string{"A", "B"}
 	},
@@ -23,7 +23,7 @@ var testModel = CSVModel[row]{
 	func(row row) ([]string, error) {
 		return []string{row.a, row.b}, nil
 	},
-}
+})
 
 const testCSV = `A,B
 x,y
