@@ -35,8 +35,8 @@ type RowModel[T any] interface {
 	WriteAll(context.Context, io.Writer, []T) error
 
 	// Read all rows as channels
-	// TODO: ReadChan(context.Context, io.Reader) (<-chan T, <-chan error)
+	ReadChan(context.Context, io.Reader) (<-chan T, <-chan error)
 	// Write all rows in channel
-	// TODO: WriteChan(context.Context, io.Writer, <-chan T, <-chan error) error
+	WriteChan(context.Context, io.Writer, <-chan T, <-chan error) error
 }
 ```

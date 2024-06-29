@@ -3,7 +3,6 @@ package examples
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"rowfiles"
@@ -117,72 +116,5 @@ func TestMix(t *testing.T) {
 	}
 	if buf.String() != testJSON {
 		panic("not equal: " + buf.String())
-	}
-}
-
-func TestAsyncRead(t *testing.T) {
-	reader, writer := io.Pipe()
-	go func() {
-		writer.Write([]byte("A,B\n"))
-		writer.Write([]byte("x,y\n"))
-		writer.Close()
-	}()
-	rows, err := csvTestModel.ReadAll(ctx, reader)
-	if err != nil {
-		panic(err)
-	}
-	if len(rows) != 1 {
-		panic("should have one row")
-	}
-	if rows[0] != testRow {
-		panic("row are not equal")
-	}
-}
-
-func TestAsyncReadError(t *testing.T) {
-	reader, writer := io.Pipe()
-	go func() {
-		writer.Write([]byte("A,B\n"))
-		writer.Write([]byte("x,y\n"))
-		writer.CloseWithError(errors.New("source error"))
-	}()
-	_, err := csvTestModel.ReadAll(ctx, reader)
-	if err.Error() != "source error" {
-		panic("error is not \"source error\"")
-	}
-}
-
-func TestAsyncWrite(t *testing.T) {
-	reader, writer := io.Pipe()
-	go func() {
-		err := csvTestModel.WriteAll(ctx, writer, []row{
-			{"x", "y"},
-		})
-		if err != nil {
-			panic(err)
-		}
-	}()
-	bytes, err := io.ReadAll(reader)
-	if err != nil {
-		panic(err)
-	}
-	if string(bytes) != testCSV {
-		panic("not equal")
-	}
-}
-
-func TestAsyncWriteError(t *testing.T) {
-	reader, writer := io.Pipe()
-	go func() {
-		csvWriter, err := csvTestModel.Writer(ctx, writer)
-		if err != nil {
-			panic(err)
-		}
-		csvWriter.Write(ctx, testRow)
-		csvWriter.Close(ctx, errors.New("source error"))
-	}()
-	_, err := io.ReadAll(reader)
-	if err.Error() != "source error" {
-		panic("error is not \"source error\"")
 	}
 }

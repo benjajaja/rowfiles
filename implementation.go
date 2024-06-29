@@ -2,6 +2,7 @@ package rowfiles
 
 import (
 	"context"
+	"fmt"
 	"io"
 )
 
@@ -107,8 +108,35 @@ func (rm coreRowModelWrapper[T, R, W]) WriteAll(ctx context.Context, w io.Writer
 }
 
 func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader) (<-chan T, <-chan error) {
-	// TODO: send reader.Read result to channels, close, etc.
-	return nil, nil
+	ch, errch := make(chan T), make(chan error)
+	go func() {
+		defer func() {
+			if err := recoverAsError(); err != nil {
+				errch <- err
+			}
+			close(ch)
+			close(errch)
+		}()
+		reader, err := rm.Reader(ctx, r)
+		if err != nil {
+			errch <- err
+			return
+		}
+
+		for {
+			row, err := reader.Read(ctx)
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+				errch <- err
+				return
+			}
+			ch <- row
+		}
+	}()
+
+	return ch, errch
 }
 
 func (rm coreRowModelWrapper[T, R, W]) WriteChan(
@@ -117,6 +145,52 @@ func (rm coreRowModelWrapper[T, R, W]) WriteChan(
 	ch <-chan T,
 	errch <-chan error,
 ) error {
-	// TODO: receive from both channels and call writer.Write, close, etc.
+	writer, err := rm.Writer(ctx, w)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer func() {
+			if err := recoverAsError(); err != nil {
+				_ = writer.Close(ctx, nil)
+			}
+		}()
+		for {
+			select {
+			case data, ok := <-ch:
+				if !ok {
+					_ = writer.Close(ctx, nil)
+					return
+				}
+				if err := writer.Write(ctx, data); err != nil {
+					_ = writer.Close(ctx, err)
+					return
+				}
+			case err := <-errch:
+				if err != nil {
+					_ = writer.Close(ctx, err)
+					return
+				}
+			case <-ctx.Done():
+				if err := ctx.Err(); err != nil {
+					_ = writer.Close(ctx, err)
+					return
+				}
+			}
+		}
+	}()
 	return nil
+}
+
+func recoverAsError() error {
+	var err error
+	if r := recover(); r != nil {
+		if t, ok := r.(error); ok {
+			err = t
+		} else {
+			err = fmt.Errorf("recovered panic: %v", r)
+		}
+	}
+	return err
 }
