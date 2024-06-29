@@ -5,6 +5,22 @@ import (
 	"io"
 )
 
+// Read rows until EOF.
+type RowReader[T any] interface {
+	// Read the next row. Returns io.EOF if no more rows.
+	Read(context.Context) (T, error)
+	// Close the underlying io.Reader, io.ReadCloser, or io.PipeReader.
+	Close(context.Context, error) error
+}
+
+// Write rows and close.
+type RowWriter[T any] interface {
+	// Write one row.
+	Write(context.Context, T) error
+	// Close the underlying io.Writer, io.WriteCloser, or io.PipeWriter.
+	Close(context.Context, error) error
+}
+
 // Create row readers and writers
 type RowModel[T any] interface {
 	// Create a RowReader[T] instance.
@@ -21,20 +37,4 @@ type RowModel[T any] interface {
 	ReadChan(context.Context, io.Reader) (<-chan T, <-chan error)
 	// Write all rows in channel
 	WriteChan(context.Context, io.Writer, <-chan T, <-chan error) error
-}
-
-// Read rows until EOF.
-type RowReader[T any] interface {
-	// Read the next row. Returns io.EOF if no more rows.
-	Read(context.Context) (T, error)
-	// Close the underlying io.Reader, io.ReadCloser, or io.PipeReader.
-	Close(context.Context, error) error
-}
-
-// Write rows and close.
-type RowWriter[T any] interface {
-	// Write one row.
-	Write(context.Context, T) error
-	// Close the underlying io.Writer, io.WriteCloser, or io.PipeWriter.
-	Close(context.Context, error) error
 }
