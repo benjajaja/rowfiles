@@ -3,8 +3,8 @@ package examples
 import (
 	"bytes"
 	"errors"
+	"github.com/benjajaja/rowfiles"
 	"io"
-	"rowfiles"
 	"testing"
 )
 

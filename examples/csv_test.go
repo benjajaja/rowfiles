@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/benjajaja/rowfiles"
 	"io"
-	"rowfiles"
 	"testing"
 )
 
