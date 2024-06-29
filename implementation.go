@@ -38,9 +38,9 @@ func (r rowReaderWrapper[T]) Close(ctx context.Context, err error) error {
 	err = r.RowReader.Close(ctx, err)
 	switch t := r.ioReader.(type) {
 	case *io.PipeReader:
-		return t.CloseWithError(err)
+		t.CloseWithError(err)
 	case io.ReadCloser:
-		return t.Close()
+		t.Close()
 	}
 	return err
 }

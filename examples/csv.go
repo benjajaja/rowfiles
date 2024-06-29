@@ -21,7 +21,7 @@ func (r CSVReader[T]) Read(ctx context.Context) (T, error) {
 }
 
 func (r CSVReader[T]) Close(ctx context.Context, err error) error {
-	return nil
+	return err
 }
 
 type CSVWriter[T any] struct {
