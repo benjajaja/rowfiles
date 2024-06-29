@@ -1,3 +1,9 @@
+// Rowfiles 🚣
+//
+// Go library for reading files that contain rows, similar to io.Reader and io.Writer but `T`
+// instead of `byte`.
+//
+// Some typical formats are CSV, JSONLines, or Parquet.
 package rowfiles
 
 import (
