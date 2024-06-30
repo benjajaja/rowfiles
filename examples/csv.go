@@ -3,6 +3,7 @@ package examples
 import (
 	"context"
 	"encoding/csv"
+	"errors"
 	"io"
 )
 
@@ -54,6 +55,10 @@ type CSVModel[T any] struct {
 func (m CSVModel[T]) Reader(ctx context.Context, r io.Reader) (CSVReader[T], error) {
 	csvReader := csv.NewReader(r)
 	_, err := csvReader.Read()
+	if err == io.EOF {
+		// This model always expects a header row, and io.EOF is used as sentinel value in io package.
+		err = errors.New("empty CSV file")
+	}
 	return CSVReader[T]{csvReader, m.header, m.deserialize}, err
 }
 

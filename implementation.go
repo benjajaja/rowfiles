@@ -111,12 +111,14 @@ func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader
 	ch, errch := make(chan T), make(chan error)
 	go func() {
 		defer func() {
+			// The reader is not closed on panics, as it might have been closed already.
 			if err := recoverAsError(); err != nil {
 				errch <- err
 			}
 			close(ch)
 			close(errch)
 		}()
+
 		reader, err := rm.Reader(ctx, r)
 		if err != nil {
 			errch <- err
@@ -127,9 +129,11 @@ func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader
 			row, err := reader.Read(ctx)
 			if err != nil {
 				if err == io.EOF {
+					reader.Close(ctx, nil)
 					return
 				}
 				errch <- err
+				reader.Close(ctx, err)
 				return
 			}
 			ch <- row

@@ -94,6 +94,23 @@ func TestChannels(t *testing.T) {
 	}
 }
 
+func TestChannelsErrors(t *testing.T) {
+	ch, errch := csvTestModel.ReadChan(ctx, bytes.NewReader([]byte("A,B\ngarbage...")))
+	r, w := io.Pipe()
+	err := csvTestModel.WriteChan(ctx, w, ch, errch)
+	if err != nil {
+		panic(err)
+	}
+
+	_, err = io.ReadAll(r)
+	if err == nil {
+		panic("should have error")
+	}
+	if err == io.EOF {
+		panic("should not be EOF")
+	}
+}
+
 func TestPipe(t *testing.T) {
 	r, err := rowfiles.Pipe(
 		ctx,

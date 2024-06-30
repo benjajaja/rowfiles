@@ -6,13 +6,25 @@ import (
 	"testing"
 )
 
+type closeFile struct {
+	*os.File
+	closed bool
+}
+
+func (cf *closeFile) Close() error {
+	err := cf.File.Close()
+	cf.closed = true
+	return err
+}
+
 func TestFile(t *testing.T) {
-	file, err := os.Open("./example.csv")
+	rawFile, err := os.Open("./example.csv")
 	if err != nil {
 		panic(err)
 	}
+	file := closeFile{rawFile, false}
 
-	ch, errch := csvTestModel.ReadChan(ctx, file)
+	ch, errch := csvTestModel.ReadChan(ctx, &file)
 
 	r, w := io.Pipe()
 	err = jsonTestModel.WriteChan(ctx, w, ch, errch)
@@ -30,5 +42,9 @@ func TestFile(t *testing.T) {
 	}
 	if string(data) != string(snapshot) {
 		panic("snapshot not equal")
+	}
+
+	if !file.closed {
+		panic("file should have been closed")
 	}
 }
