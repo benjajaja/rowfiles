@@ -5,12 +5,16 @@ io.Writer but `T` instead of `byte`.
 
 Some typical formats are CSV, JSONLines, or Parquet.
 
+Because these formats can usually be read progressively, we can avoid reading
+the entire contents into memory (a slice), and instead use channels and
+goroutines to pipe one row at a time.
+
 ```go
 // Read rows until EOF.
 type RowReader[T any] interface {
 	// Read the next row. Returns io.EOF if no more rows.
 	Read(context.Context) (T, error)
-	// Close the underlying io.Reader, io.ReadCloser, or io.PipeReader.
+	// Usually a no-op.
 	Close(context.Context, error) error
 }
 
@@ -18,26 +22,32 @@ type RowReader[T any] interface {
 type RowWriter[T any] interface {
 	// Write one row.
 	Write(context.Context, T) error
-	// Close the format and the underlying io.Writer, io.WriteCloser, or io.PipeWriter.
+	// Close the format.
 	Close(context.Context, error) error
 }
 
-// Create row readers and writers
+// Create row readers and writers for a specific file format.
 type RowFormat[T any] interface {
 	// Create a RowReader[T] instance.
 	Reader(context.Context, io.Reader) (RowReader[T], error)
 	// Create a RowWriter[T] instance.
 	Writer(context.Context, io.Writer) (RowWriter[T], error)
 
-	// Read all rows
+	// Read all rows into a slice.
 	ReadAll(context.Context, io.Reader) ([]T, error)
-	// Write all rows
+	// Write all rows from a slice.
 	WriteAll(context.Context, io.Writer, []T) error
 
-	// Read all rows as channels
-	ReadChan(context.Context, io.Reader) (<-chan T, <-chan error)
-	// Write all rows in channel
-	WriteChan(context.Context, io.Writer, <-chan T, <-chan error) error
+	// Read all rows as channel.
+	ReadChan(context.Context, io.Reader) <-chan Result[T]
+	// Write all rows from a channel.
+	WriteChan(context.Context, io.Writer, <-chan Result[T]) error
+}
+
+// Result[T] type for channel operations.
+type Result[T any] struct {
+	Result *T
+	Err    error
 }
 ```
 
@@ -45,16 +55,20 @@ type RowFormat[T any] interface {
 
 See the examples package, there's a CSV and a JSONLines format included. They
 are not included in the base package, because while e.g. CSV is a standard
-format, the actual details vary wildy.
+format, the actual details vary wildy. For example, the header is optional, the
+encoding and separator might need to be configured, and more.
 
-For example, the JSONLines format uses `bufio.Scanner` and `json.Marshal/Unmarshal`.
+The JSONLines format uses simply uses `bufio.Scanner` and
+`json.Marshal/Unmarshal`, so no de/serialization is needed.
 
-The format needs only implement `Reader` and `Writer` methods. Extend it to a
+A format needs only implement `Reader` and `Writer` methods. Extend it to a
 full `RowFormat[T]` by writing a constructor like so:
 
 ```go
 func NewCSVFormat[T any]() RowFormat[T] {
-    return rowfiles.NewRowFormat[T](CSVFormat[T]{})
+    return rowfiles.NewRowFormat[T](CSVFormat[T]{
+        // CSVFormat options
+    })
 }
 
 // It makes sense to have a singleton that reads specific types in a package.
@@ -100,7 +114,7 @@ close(ch)
 ```go
 var myRowParquetFormat = rowfiles.NewRowFormat[T](ParquetFormat[T]{})
 
-// For example, get a reader that will download a file *when read*.
+// For example, get a reader that will download a file when read.
 var reader io.Reader = download("get_a_csv")
 
 // Pipe CSV rows into an io.Reader that is in parquet format.
