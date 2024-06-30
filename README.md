@@ -1,7 +1,7 @@
 # Rowfiles 🚣
 
-Go library for reading files that contain rows, similar to io.Reader and io.Writer but `T`
-instead of `byte`.
+Go library for reading files that contain rows, similar to io.Reader and
+io.Writer but `T` instead of `byte`.
 
 Some typical formats are CSV, JSONLines, or Parquet.
 
@@ -40,3 +40,77 @@ type RowModel[T any] interface {
 	WriteChan(context.Context, io.Writer, <-chan T, <-chan error) error
 }
 ```
+
+### Defining your own formats
+
+See the examples package, there's a CSV and a JSONLines format included. They
+are not included in the base package, because while e.g. CSV is a standard
+format, the actual details vary wildy.
+
+For example, the JSONLines model uses `bufio.Scanner` and `json.Marshal/Unmarshal`.
+
+The model needs only implement `Reader` and `Writer` methods. Extend it to a full `RowModel[T]` by writing a constructor like so:
+
+```go
+func NewCSVModel[T any]() RowModel[T] {
+    return rowfiles.NewRowModel[T](CSVModel[T]{})
+}
+
+// It makes sense to have a singleton that reads specific types in a package.
+var myRowCSVModel = NewCSVModel[myRow]()
+```
+
+### Using a model
+
+See the tests in the examples package for full usage.
+
+#### Read into slice
+
+```go
+// Just read all rows into a slice in memory.
+file, err := os.Open("rows.csv")
+rows, err := myRowCSVModel.ReadAll(ctx, reader)
+```
+
+#### Upload and download without buffering
+
+```go
+var myRowParquetModel = rowfiles.NewRowModel[T](ParquetModel[T]{})
+
+// For example, get a reader that will download a file *when read*.
+var reader io.Reader = download("get_a_csv")
+
+// Pipe CSV rows into an io.Reader that is in parquet format.
+result, err := rowfiles.Pipe(ctx, reader, myRowCSVModel, myRowParquetModel)
+
+// A function that uploads data incoming into the reader.
+upload("put_a_parquet", result)
+```
+
+#### Merge several input files of same type but different formats
+
+```go
+reader1, _ := csvModel.Reader(ctx, bytes.NewReader([]byte("<CSV data>")))
+reader2, _ := jsonModel.Reader(ctx, bytes.NewReader([]byte("<JSONLines data>")))
+
+result, _ := rowfiles.Merge(
+    ctx,
+    csvModel, // This is the output format
+    reader1,
+    reader2,
+    // ...
+)
+```
+
+### Error handling and closing
+
+The primitives all return error, and take a context.
+
+The more complex channel / piping / merging parts all use `io.Pipe()` to
+propagate errors across `io.Reader`s and `io.Writer`s with `CloseWithError`.
+
+Everyting is closed by "upcasting" to either `*io.Pipe<Reader/Writer>` or
+`<Write/Read>Closer`.
+
+Panics from `Row<Reader/Writer>[T]` implementations are recovered in the
+channel related goroutines.
