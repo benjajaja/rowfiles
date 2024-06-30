@@ -16,7 +16,7 @@ type row struct {
 
 var ctx = context.Background()
 
-var csvTestModel = rowfiles.NewRowModel[row](CSVModel[row]{
+var csvTestFormat = rowfiles.NewRowFormat[row](CSVFormat[row]{
 	func() []string {
 		return []string{"A", "B"}
 	},
@@ -37,12 +37,12 @@ c,d
 const testJSON = `{"a":"c","b":"d"}
 `
 
-var jsonTestModel = rowfiles.NewRowModel[row](JSONLinesModel[row]{})
+var jsonTestFormat = rowfiles.NewRowFormat[row](JSONLinesFormat[row]{})
 
 func TestReadCSV(t *testing.T) {
 	var reader rowfiles.RowReader[row]
 	var err error
-	reader, err = csvTestModel.Reader(ctx, bytes.NewReader([]byte(testCSV)))
+	reader, err = csvTestFormat.Reader(ctx, bytes.NewReader([]byte(testCSV)))
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +67,7 @@ func TestWriteCSV(t *testing.T) {
 	var writer rowfiles.RowWriter[row]
 	var err error
 	buf := bytes.NewBuffer([]byte{})
-	writer, err = csvTestModel.Writer(ctx, buf)
+	writer, err = csvTestFormat.Writer(ctx, buf)
 	if err != nil {
 		panic(err)
 	}
@@ -86,14 +86,14 @@ func TestWriteCSV(t *testing.T) {
 
 func TestCreateCSVReaderError(t *testing.T) {
 	// We know that CSVReader produces an error if there's no header.
-	_, err := csvTestModel.Reader(ctx, bytes.NewReader([]byte{}))
+	_, err := csvTestFormat.Reader(ctx, bytes.NewReader([]byte{}))
 	if err == nil {
 		panic("should return error")
 	}
 }
 
 func TestReadCSVEOF(t *testing.T) {
-	reader, err := csvTestModel.Reader(ctx, bytes.NewReader([]byte("A,B\n")))
+	reader, err := csvTestFormat.Reader(ctx, bytes.NewReader([]byte("A,B\n")))
 	if err != nil {
 		panic(err)
 	}
@@ -104,12 +104,12 @@ func TestReadCSVEOF(t *testing.T) {
 }
 
 func TestMix(t *testing.T) {
-	rows, err := csvTestModel.ReadAll(ctx, bytes.NewReader([]byte(testCSV)))
+	rows, err := csvTestFormat.ReadAll(ctx, bytes.NewReader([]byte(testCSV)))
 	if err != nil {
 		panic(err)
 	}
 	buf := bytes.NewBuffer([]byte{})
-	err = jsonTestModel.WriteAll(ctx, buf, rows)
+	err = jsonTestFormat.WriteAll(ctx, buf, rows)
 	if err != nil {
 		panic(err)
 	}

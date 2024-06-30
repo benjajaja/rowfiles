@@ -28,8 +28,8 @@ type RowWriter[T any] interface {
 	Close(context.Context, error) error
 }
 
-// Create row readers and writers
-type RowModel[T any] interface {
+// Create row readers and writers for a specific file format.
+type RowFormat[T any] interface {
 	// Create a RowReader[T] instance.
 	Reader(context.Context, io.Reader) (RowReader[T], error)
 	// Create a RowWriter[T] instance.
@@ -46,17 +46,18 @@ type RowModel[T any] interface {
 	WriteChan(context.Context, io.Writer, <-chan Result[T]) error
 }
 
+// Result[T] type for channel operations.
 type Result[T any] struct {
 	Result *T
 	Err    error
 }
 
-// Pipe all rows from one model to another.
+// Pipe all rows from one format to another.
 func Pipe[T any](
 	ctx context.Context,
 	r io.Reader,
-	in RowModel[T],
-	out RowModel[T],
+	in RowFormat[T],
+	out RowFormat[T],
 ) (io.Reader, error) {
 	ch := in.ReadChan(ctx, r)
 
@@ -70,7 +71,7 @@ func Pipe[T any](
 
 func Merge[T any](
 	ctx context.Context,
-	out RowModel[T],
+	out RowFormat[T],
 	readers ...RowReader[T],
 ) (io.Reader, error) {
 

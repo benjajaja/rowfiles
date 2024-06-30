@@ -23,7 +23,7 @@ type RowWriter[T any] interface {
 }
 
 // Create row readers and writers
-type RowModel[T any] interface {
+type RowFormat[T any] interface {
 	// Create a RowReader[T] instance.
 	Reader(context.Context, io.Reader) (RowReader[T], error)
 	// Create a RowWriter[T] instance.
@@ -47,20 +47,21 @@ See the examples package, there's a CSV and a JSONLines format included. They
 are not included in the base package, because while e.g. CSV is a standard
 format, the actual details vary wildy.
 
-For example, the JSONLines model uses `bufio.Scanner` and `json.Marshal/Unmarshal`.
+For example, the JSONLines format uses `bufio.Scanner` and `json.Marshal/Unmarshal`.
 
-The model needs only implement `Reader` and `Writer` methods. Extend it to a full `RowModel[T]` by writing a constructor like so:
+The format needs only implement `Reader` and `Writer` methods. Extend it to a
+full `RowFormat[T]` by writing a constructor like so:
 
 ```go
-func NewCSVModel[T any]() RowModel[T] {
-    return rowfiles.NewRowModel[T](CSVModel[T]{})
+func NewCSVFormat[T any]() RowFormat[T] {
+    return rowfiles.NewRowFormat[T](CSVFormat[T]{})
 }
 
 // It makes sense to have a singleton that reads specific types in a package.
-var myRowCSVModel = NewCSVModel[myRow]()
+var myRowCSVFormat = NewCSVFormat[myRow]()
 ```
 
-### Using a model
+### Using a format
 
 See the tests in the examples package for full usage.
 
@@ -69,19 +70,19 @@ See the tests in the examples package for full usage.
 ```go
 // Just read all rows into a slice in memory.
 file, err := os.Open("rows.csv")
-rows, err := myRowCSVModel.ReadAll(ctx, reader)
+rows, err := myRowCSVFormat.ReadAll(ctx, reader)
 ```
 
 #### Upload and download without buffering
 
 ```go
-var myRowParquetModel = rowfiles.NewRowModel[T](ParquetModel[T]{})
+var myRowParquetFormat = rowfiles.NewRowFormat[T](ParquetFormat[T]{})
 
 // For example, get a reader that will download a file *when read*.
 var reader io.Reader = download("get_a_csv")
 
 // Pipe CSV rows into an io.Reader that is in parquet format.
-result, err := rowfiles.Pipe(ctx, reader, myRowCSVModel, myRowParquetModel)
+result, err := rowfiles.Pipe(ctx, reader, myRowCSVFormat, myRowParquetFormat)
 
 // A function that uploads data incoming into the reader.
 upload("put_a_parquet", result)
@@ -90,12 +91,12 @@ upload("put_a_parquet", result)
 #### Merge several input files of same type but different formats
 
 ```go
-reader1, _ := csvModel.Reader(ctx, bytes.NewReader([]byte("<CSV data>")))
-reader2, _ := jsonModel.Reader(ctx, bytes.NewReader([]byte("<JSONLines data>")))
+reader1, _ := csvFormat.Reader(ctx, bytes.NewReader([]byte("<CSV data>")))
+reader2, _ := jsonFormat.Reader(ctx, bytes.NewReader([]byte("<JSONLines data>")))
 
 result, _ := rowfiles.Merge(
     ctx,
-    csvModel, // This is the output format
+    csvFormat, // This is the output format
     reader1,
     reader2,
     // ...

@@ -24,10 +24,10 @@ func TestFile(t *testing.T) {
 	}
 	file := closeFile{rawFile, false}
 
-	ch := csvTestModel.ReadChan(ctx, &file)
+	ch := csvTestFormat.ReadChan(ctx, &file)
 
 	r, w := io.Pipe()
-	err = jsonTestModel.WriteChan(ctx, w, ch)
+	err = jsonTestFormat.WriteChan(ctx, w, ch)
 	if err != nil {
 		panic(err)
 	}

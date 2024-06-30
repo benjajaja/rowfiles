@@ -46,23 +46,23 @@ func (r CSVWriter[T]) Close(ctx context.Context, err error) error {
 	return r.csvWriter.Error()
 }
 
-type CSVModel[T any] struct {
+type CSVFormat[T any] struct {
 	header      func() []string
 	deserialize func(record []string) (T, error)
 	serialize   func(row T) ([]string, error)
 }
 
-func (m CSVModel[T]) Reader(ctx context.Context, r io.Reader) (CSVReader[T], error) {
+func (m CSVFormat[T]) Reader(ctx context.Context, r io.Reader) (CSVReader[T], error) {
 	csvReader := csv.NewReader(r)
 	_, err := csvReader.Read()
 	if err == io.EOF {
-		// This model always expects a header row, and io.EOF is used as sentinel value in io package.
+		// This format always expects a header row, and io.EOF is used as sentinel value in io package.
 		err = errors.New("empty CSV file")
 	}
 	return CSVReader[T]{csvReader, m.header, m.deserialize}, err
 }
 
-func (m CSVModel[T]) Writer(ctx context.Context, w io.Writer) (CSVWriter[T], error) {
+func (m CSVFormat[T]) Writer(ctx context.Context, w io.Writer) (CSVWriter[T], error) {
 	csvWriter := csv.NewWriter(w)
 	err := csvWriter.Write(m.header())
 	return CSVWriter[T]{csvWriter, m.serialize}, err

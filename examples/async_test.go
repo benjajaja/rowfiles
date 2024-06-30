@@ -15,7 +15,7 @@ func TestAsyncRead(t *testing.T) {
 		w.Write([]byte("x,y\n"))
 		w.Close()
 	}()
-	rows, err := csvTestModel.ReadAll(ctx, r)
+	rows, err := csvTestFormat.ReadAll(ctx, r)
 	if err != nil {
 		panic(err)
 	}
@@ -34,7 +34,7 @@ func TestAsyncReadError(t *testing.T) {
 		w.Write([]byte("x,y\n"))
 		w.CloseWithError(errors.New("source error"))
 	}()
-	_, err := csvTestModel.ReadAll(ctx, r)
+	_, err := csvTestFormat.ReadAll(ctx, r)
 	if err.Error() != "source error" {
 		panic("error is not \"source error\"")
 	}
@@ -43,7 +43,7 @@ func TestAsyncReadError(t *testing.T) {
 func TestAsyncWrite(t *testing.T) {
 	r, w := io.Pipe()
 	go func() {
-		err := csvTestModel.WriteAll(ctx, w, []row{{"c", "d"}})
+		err := csvTestFormat.WriteAll(ctx, w, []row{{"c", "d"}})
 		if err != nil {
 			panic(err)
 		}
@@ -60,7 +60,7 @@ func TestAsyncWrite(t *testing.T) {
 func TestAsyncWriteError(t *testing.T) {
 	r, w := io.Pipe()
 	go func() {
-		csvWriter, err := csvTestModel.Writer(ctx, w)
+		csvWriter, err := csvTestFormat.Writer(ctx, w)
 		if err != nil {
 			panic(err)
 		}
@@ -74,9 +74,9 @@ func TestAsyncWriteError(t *testing.T) {
 }
 
 func TestChannels(t *testing.T) {
-	ch := csvTestModel.ReadChan(ctx, bytes.NewReader([]byte(testCSV)))
+	ch := csvTestFormat.ReadChan(ctx, bytes.NewReader([]byte(testCSV)))
 	r, w := io.Pipe()
-	err := csvTestModel.WriteChan(ctx, w, ch)
+	err := csvTestFormat.WriteChan(ctx, w, ch)
 	if err != nil {
 		panic(err)
 	}
@@ -93,9 +93,9 @@ func TestChannels(t *testing.T) {
 }
 
 func TestChannelsErrors(t *testing.T) {
-	ch := csvTestModel.ReadChan(ctx, bytes.NewReader([]byte("A,B\ngarbage...")))
+	ch := csvTestFormat.ReadChan(ctx, bytes.NewReader([]byte("A,B\ngarbage...")))
 	r, w := io.Pipe()
-	err := csvTestModel.WriteChan(ctx, w, ch)
+	err := csvTestFormat.WriteChan(ctx, w, ch)
 	if err != nil {
 		panic(err)
 	}
@@ -113,8 +113,8 @@ func TestPipe(t *testing.T) {
 	r, err := rowfiles.Pipe(
 		ctx,
 		bytes.NewReader([]byte(testCSV)),
-		csvTestModel,
-		jsonTestModel,
+		csvTestFormat,
+		jsonTestFormat,
 	)
 	if err != nil {
 		panic(err)
@@ -131,18 +131,18 @@ func TestPipe(t *testing.T) {
 }
 
 func TestMerge(t *testing.T) {
-	reader1, err := csvTestModel.Reader(ctx, bytes.NewReader([]byte(testCSV)))
+	reader1, err := csvTestFormat.Reader(ctx, bytes.NewReader([]byte(testCSV)))
 	if err != nil {
 		panic(err)
 	}
-	reader2, err := jsonTestModel.Reader(ctx, bytes.NewReader([]byte(testJSON)))
+	reader2, err := jsonTestFormat.Reader(ctx, bytes.NewReader([]byte(testJSON)))
 	if err != nil {
 		panic(err)
 	}
 
 	r, err := rowfiles.Merge(
 		ctx,
-		csvTestModel,
+		csvTestFormat,
 		reader1,
 		reader2,
 	)

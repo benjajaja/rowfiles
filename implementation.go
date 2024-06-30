@@ -6,23 +6,23 @@ import (
 	"io"
 )
 
-// Make a RowModel[T] from just the core Reader and Writer methods.
-func NewRowModel[T any, R RowReader[T], W RowWriter[T]](core coreRowModel[T, R, W]) RowModel[T] {
+// Make a RowFormat[T] from just the core Reader and Writer methods.
+func NewRowFormat[T any, R RowReader[T], W RowWriter[T]](core coreRowFormat[T, R, W]) RowFormat[T] {
 	// The R and W generics are only here because go insist on verbatim method signatures.
 	// So we pass in the relevant signature parts as generics.
-	return coreRowModelWrapper[T, R, W]{core}
+	return coreRowFormatWrapper[T, R, W]{core}
 }
 
-type coreRowModel[T any, R any, W any] interface {
+type coreRowFormat[T any, R any, W any] interface {
 	Reader(context.Context, io.Reader) (R, error)
 	Writer(context.Context, io.Writer) (W, error)
 }
 
-type coreRowModelWrapper[T any, R RowReader[T], W RowWriter[T]] struct {
-	Core coreRowModel[T, R, W]
+type coreRowFormatWrapper[T any, R RowReader[T], W RowWriter[T]] struct {
+	Core coreRowFormat[T, R, W]
 }
 
-func (rm coreRowModelWrapper[T, R, W]) Reader(ctx context.Context, r io.Reader) (RowReader[T], error) {
+func (rm coreRowFormatWrapper[T, R, W]) Reader(ctx context.Context, r io.Reader) (RowReader[T], error) {
 	core, err := rm.Core.Reader(ctx, r)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (r rowReaderWrapper[T]) Close(ctx context.Context, err error) error {
 	return err
 }
 
-func (rm coreRowModelWrapper[T, R, W]) Writer(ctx context.Context, w io.Writer) (RowWriter[T], error) {
+func (rm coreRowFormatWrapper[T, R, W]) Writer(ctx context.Context, w io.Writer) (RowWriter[T], error) {
 	core, err := rm.Core.Writer(ctx, w)
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func (rw rowWriterWrapper[T]) Close(ctx context.Context, err error) error {
 	return err
 }
 
-func (rm coreRowModelWrapper[T, R, W]) ReadAll(ctx context.Context, r io.Reader) ([]T, error) {
+func (rm coreRowFormatWrapper[T, R, W]) ReadAll(ctx context.Context, r io.Reader) ([]T, error) {
 	reader, err := rm.Reader(ctx, r)
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (rm coreRowModelWrapper[T, R, W]) ReadAll(ctx context.Context, r io.Reader)
 	return rows, reader.Close(ctx, nil)
 }
 
-func (rm coreRowModelWrapper[T, R, W]) WriteAll(ctx context.Context, w io.Writer, rows []T) error {
+func (rm coreRowFormatWrapper[T, R, W]) WriteAll(ctx context.Context, w io.Writer, rows []T) error {
 	writer, err := rm.Writer(ctx, w)
 	if err != nil {
 		return err
@@ -107,7 +107,7 @@ func (rm coreRowModelWrapper[T, R, W]) WriteAll(ctx context.Context, w io.Writer
 	return writer.Close(ctx, nil)
 }
 
-func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader) <-chan Result[T] {
+func (rm coreRowFormatWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader) <-chan Result[T] {
 	ch := make(chan Result[T])
 	go func() {
 		defer func() {
@@ -142,7 +142,7 @@ func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader
 	return ch
 }
 
-func (rm coreRowModelWrapper[T, R, W]) WriteChan(
+func (rm coreRowFormatWrapper[T, R, W]) WriteChan(
 	ctx context.Context,
 	w io.Writer,
 	ch <-chan Result[T],

@@ -44,14 +44,14 @@ func (r JSONLinesWriter[T]) Close(ctx context.Context, err error) error {
 	return err
 }
 
-// jsonLinesModel simply writes JSON lines, leveraging the json package.
-type JSONLinesModel[T any] struct{}
+// jsonLinesFormat simply writes JSON lines, leveraging the json package.
+type JSONLinesFormat[T any] struct{}
 
-func (m JSONLinesModel[T]) Reader(ctx context.Context, r io.Reader) (JSONLinesReader[T], error) {
+func (m JSONLinesFormat[T]) Reader(ctx context.Context, r io.Reader) (JSONLinesReader[T], error) {
 	scanner := bufio.NewScanner(r)
 	return JSONLinesReader[T]{scanner}, nil
 }
 
-func (m JSONLinesModel[T]) Writer(ctx context.Context, w io.Writer) (JSONLinesWriter[T], error) {
+func (m JSONLinesFormat[T]) Writer(ctx context.Context, w io.Writer) (JSONLinesWriter[T], error) {
 	return JSONLinesWriter[T]{w}, nil
 }
