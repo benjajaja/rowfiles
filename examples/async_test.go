@@ -76,9 +76,9 @@ func TestAsyncWriteError(t *testing.T) {
 }
 
 func TestChannels(t *testing.T) {
-	ch, errch := csvTestModel.ReadChan(ctx, bytes.NewReader([]byte(testCSV)))
+	ch := csvTestModel.ReadChan(ctx, bytes.NewReader([]byte(testCSV)))
 	r, w := io.Pipe()
-	err := csvTestModel.WriteChan(ctx, w, ch, errch)
+	err := csvTestModel.WriteChan(ctx, w, ch)
 	if err != nil {
 		panic(err)
 	}
@@ -95,9 +95,9 @@ func TestChannels(t *testing.T) {
 }
 
 func TestChannelsErrors(t *testing.T) {
-	ch, errch := csvTestModel.ReadChan(ctx, bytes.NewReader([]byte("A,B\ngarbage...")))
+	ch := csvTestModel.ReadChan(ctx, bytes.NewReader([]byte("A,B\ngarbage...")))
 	r, w := io.Pipe()
-	err := csvTestModel.WriteChan(ctx, w, ch, errch)
+	err := csvTestModel.WriteChan(ctx, w, ch)
 	if err != nil {
 		panic(err)
 	}

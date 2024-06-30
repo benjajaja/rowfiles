@@ -107,21 +107,20 @@ func (rm coreRowModelWrapper[T, R, W]) WriteAll(ctx context.Context, w io.Writer
 	return writer.Close(ctx, nil)
 }
 
-func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader) (<-chan T, <-chan error) {
-	ch, errch := make(chan T), make(chan error)
+func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader) <-chan Result[T] {
+	ch := make(chan Result[T])
 	go func() {
 		defer func() {
 			// The reader is not closed on panics, as it might have been closed already.
 			if err := recoverAsError(); err != nil {
-				errch <- err
+				ch <- Result[T]{nil, err}
 			}
 			close(ch)
-			close(errch)
 		}()
 
 		reader, err := rm.Reader(ctx, r)
 		if err != nil {
-			errch <- err
+			ch <- Result[T]{nil, err}
 			return
 		}
 
@@ -132,22 +131,21 @@ func (rm coreRowModelWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reader
 					reader.Close(ctx, nil)
 					return
 				}
-				errch <- err
+				ch <- Result[T]{nil, err}
 				reader.Close(ctx, err)
 				return
 			}
-			ch <- row
+			ch <- Result[T]{&row, nil}
 		}
 	}()
 
-	return ch, errch
+	return ch
 }
 
 func (rm coreRowModelWrapper[T, R, W]) WriteChan(
 	ctx context.Context,
 	w io.Writer,
-	ch <-chan T,
-	errch <-chan error,
+	ch <-chan Result[T],
 ) error {
 	writer, err := rm.Writer(ctx, w)
 	if err != nil {
@@ -162,18 +160,18 @@ func (rm coreRowModelWrapper[T, R, W]) WriteChan(
 		}()
 		for {
 			select {
-			case data, ok := <-ch:
+			case result, ok := <-ch:
 				if !ok {
 					_ = writer.Close(ctx, nil)
 					return
 				}
-				if err := writer.Write(ctx, data); err != nil {
-					_ = writer.Close(ctx, err)
-					return
-				}
-			case err := <-errch:
-				if err != nil {
-					_ = writer.Close(ctx, err)
+				if result.Result != nil {
+					if err := writer.Write(ctx, *result.Result); err != nil {
+						_ = writer.Close(ctx, err)
+						return
+					}
+				} else {
+					_ = writer.Close(ctx, result.Err)
 					return
 				}
 			case <-ctx.Done():
