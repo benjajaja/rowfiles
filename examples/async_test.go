@@ -22,7 +22,7 @@ func TestAsyncRead(t *testing.T) {
 	if len(rows) != 1 {
 		panic("should have one row")
 	}
-	if rows[0] != testRow {
+	if rows[0] != (row{"x", "y"}) {
 		panic("row are not equal")
 	}
 }
@@ -43,9 +43,7 @@ func TestAsyncReadError(t *testing.T) {
 func TestAsyncWrite(t *testing.T) {
 	r, w := io.Pipe()
 	go func() {
-		err := csvTestModel.WriteAll(ctx, w, []row{
-			{"x", "y"},
-		})
+		err := csvTestModel.WriteAll(ctx, w, []row{{"c", "d"}})
 		if err != nil {
 			panic(err)
 		}
@@ -55,7 +53,7 @@ func TestAsyncWrite(t *testing.T) {
 		panic(err)
 	}
 	if string(bytes) != testCSV {
-		panic("not equal")
+		panic("not equal: " + string(bytes))
 	}
 }
 
@@ -66,7 +64,7 @@ func TestAsyncWriteError(t *testing.T) {
 		if err != nil {
 			panic(err)
 		}
-		csvWriter.Write(ctx, testRow)
+		csvWriter.Write(ctx, (row{"x", "y"}))
 		csvWriter.Close(ctx, errors.New("source error"))
 	}()
 	_, err := io.ReadAll(r)
@@ -126,7 +124,39 @@ func TestPipe(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	if string(bytes) != testJSON {
+	if string(bytes) != `{"a":"c","b":"d"}
+` {
 		panic("not equal")
+	}
+}
+
+func TestMerge(t *testing.T) {
+	reader1, err := csvTestModel.Reader(ctx, bytes.NewReader([]byte(testCSV)))
+	if err != nil {
+		panic(err)
+	}
+	reader2, err := jsonTestModel.Reader(ctx, bytes.NewReader([]byte(testJSON)))
+	if err != nil {
+		panic(err)
+	}
+
+	r, err := rowfiles.Merge(
+		ctx,
+		csvTestModel,
+		reader1,
+		reader2,
+	)
+	if err != nil {
+		panic(err)
+	}
+	bytes, err := io.ReadAll(r)
+	if err != nil {
+		panic(err)
+	}
+	if string(bytes) != `A,B
+c,d
+c,d
+` {
+		panic("not equal: " + string(bytes))
 	}
 }

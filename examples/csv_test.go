@@ -14,7 +14,6 @@ type row struct {
 	B string `json:"b"`
 }
 
-var testRow = row{"x", "y"}
 var ctx = context.Background()
 
 var csvTestModel = rowfiles.NewRowModel[row](CSVModel[row]{
@@ -33,9 +32,9 @@ var csvTestModel = rowfiles.NewRowModel[row](CSVModel[row]{
 })
 
 const testCSV = `A,B
-x,y
+c,d
 `
-const testJSON = `{"a":"x","b":"y"}
+const testJSON = `{"a":"c","b":"d"}
 `
 
 var jsonTestModel = rowfiles.NewRowModel[row](JSONLinesModel[row]{})
@@ -51,7 +50,7 @@ func TestReadCSV(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	if one != testRow {
+	if one != (row{"c", "d"}) {
 		panic("not equal")
 	}
 	_, err = reader.Read(ctx)
@@ -72,7 +71,7 @@ func TestWriteCSV(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	err = writer.Write(ctx, testRow)
+	err = writer.Write(ctx, (row{"c", "d"}))
 	if err != nil {
 		panic(err)
 	}

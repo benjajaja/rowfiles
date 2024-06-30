@@ -9,6 +9,7 @@ package rowfiles
 import (
 	"context"
 	"io"
+	"sync"
 )
 
 // Read rows until EOF.
@@ -45,6 +46,11 @@ type RowModel[T any] interface {
 	WriteChan(context.Context, io.Writer, <-chan Result[T]) error
 }
 
+type Result[T any] struct {
+	Result *T
+	Err    error
+}
+
 // Pipe all rows from one model to another.
 func Pipe[T any](
 	ctx context.Context,
@@ -62,46 +68,41 @@ func Pipe[T any](
 	return r, nil
 }
 
-type Result[T any] struct {
-	Result *T
-	Err    error
-}
+func Merge[T any](
+	ctx context.Context,
+	out RowModel[T],
+	readers ...RowReader[T],
+) (io.Reader, error) {
 
-// Convert a (<-chan T, <-chan error) pair to one <-chan Result[T].
-func ResultChannel[T any](
-	ch <-chan T,
-	errch <-chan error,
-	err error,
-) <-chan Result[T] {
-	out := make(chan Result[T])
-	go func() {
-		if err != nil {
-			out <- Result[T]{nil, err}
-			close(out)
-			return
-		}
+	r, w := io.Pipe()
 
-		defer func() {
-			if err := recoverAsError(); err != nil {
-				out <- Result[T]{nil, err}
-			}
-			close(out)
-		}()
+	merged := make(chan Result[T])
+
+	var wg sync.WaitGroup
+	wg.Add(len(readers))
+	run := func(reader RowReader[T]) {
 		for {
-			select {
-			case data, ok := <-ch:
-				if !ok {
-					return
-				}
-				out <- Result[T]{&data, nil}
-			case err := <-errch:
-				if err != nil {
-					out <- Result[T]{nil, err}
-					return
-				}
+			row, err := reader.Read(ctx)
+			if err != io.EOF {
+				merged <- Result[T]{&row, err}
+			}
+			if err != nil {
+				break
 			}
 		}
+		wg.Done()
+	}
+	for _, reader := range readers {
+		go run(reader)
+	}
+	go func() {
+		wg.Wait()
+		close(merged)
 	}()
-	return out
 
+	err := out.WriteChan(ctx, w, merged)
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
