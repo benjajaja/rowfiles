@@ -73,13 +73,45 @@ func TestAsyncWriteError(t *testing.T) {
 	}
 }
 
-func TestChannels(t *testing.T) {
+func TestReadChannel(t *testing.T) {
 	ch := csvTestFormat.ReadChan(ctx, bytes.NewReader([]byte(testCSV)))
+
+	rows := []row{}
+	for result := range ch {
+		if result.Err != nil {
+			panic(result.Err)
+		}
+		rows = append(rows, *result.Result)
+	}
+	if rows[0] != (row{"c", "d"}) {
+		panic("not equal")
+	}
+}
+
+func TestWriteChannel(t *testing.T) {
+	ch := make(chan rowfiles.Result[row])
 	r, w := io.Pipe()
 	err := csvTestFormat.WriteChan(ctx, w, ch)
 	if err != nil {
 		panic(err)
 	}
+
+	ch <- rowfiles.Result[row]{Result: &row{"c", "d"}}
+	close(ch)
+
+	output, err := io.ReadAll(r)
+	if err != nil {
+		panic(err)
+	}
+	if string(output) != testCSV {
+		panic("not equal: " + string(output))
+	}
+}
+
+func TestChannels(t *testing.T) {
+	ch := csvTestFormat.ReadChan(ctx, bytes.NewReader([]byte(testCSV)))
+	r, w := io.Pipe()
+	err := csvTestFormat.WriteChan(ctx, w, ch)
 	if err != nil {
 		panic(err)
 	}

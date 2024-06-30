@@ -125,6 +125,12 @@ func (rm coreRowFormatWrapper[T, R, W]) ReadChan(ctx context.Context, r io.Reade
 		}
 
 		for {
+			if err := ctx.Err(); err != nil {
+				ch <- Result[T]{nil, err}
+				reader.Close(ctx, err)
+				return
+			}
+
 			row, err := reader.Read(ctx)
 			if err != nil {
 				if err == io.EOF {

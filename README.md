@@ -73,6 +73,28 @@ file, err := os.Open("rows.csv")
 rows, err := myRowCSVFormat.ReadAll(ctx, reader)
 ```
 
+#### Using channels
+
+```go
+file, _ := os.Open("rows.csv")
+for result := range myRowCSVFormat.ReadChan(ctx, reader) {
+    if result.Err != nil {
+        // handle result.Err
+    } else {
+        // use *result.Result
+    }
+}
+```
+
+```go
+ch := make(chan rowfiles.Result[myRow])
+var writer io.Writer = uploader("put_a_csv")
+err := myRowCSVFormat.WriteChan(ctx, writer, ch)
+
+ch <- rowFiles.Result{Result: &row{...}}
+close(ch)
+```
+
 #### Upload and download without buffering
 
 ```go
@@ -103,7 +125,7 @@ result, _ := rowfiles.Merge(
 )
 ```
 
-### Error handling and closing
+### Error handling, closing, and context
 
 The primitives all return error, and take a context.
 
@@ -115,3 +137,5 @@ Everyting is closed by "upcasting" to either `*io.Pipe<Reader/Writer>` or
 
 Panics from `Row<Reader/Writer>[T]` implementations are recovered in the
 channel related goroutines.
+
+ReadChan and WriteChan both check/select context cancellation.
